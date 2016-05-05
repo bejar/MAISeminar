@@ -426,3 +426,4 @@ if __name__ == '__main__':
     data.read_data()
     data.info()
     mymap = cluster_events(data, radius=0.005)
+    print mymap

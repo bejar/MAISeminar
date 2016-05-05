@@ -75,10 +75,7 @@ def cluster_colapsed_events(data, users, minloc=20, nclust=10, mode='nf', alg='a
         for v, u in zip(ap_labels, users):
             if cclass[v] > minsize:
                 clusters['c' + str(v)].append(u)
-        print len(clusters)
 
-        for c in clusters:
-            print c, len(clusters[c])
     elif alg == 'kmeans':
         k_means = KMeans(init='k-means++', n_clusters=nclust, n_init=10, n_jobs=-1)
         k_means.fit(data)
@@ -98,9 +95,6 @@ def cluster_colapsed_events(data, users, minloc=20, nclust=10, mode='nf', alg='a
             if cclass[v] > minsize:
                 clusters['c' + str(v)].append(u)
 
-        print len(clusters)
-        for c in clusters:
-            print c, len(clusters[c])
     elif alg == 'spectral':
         spectral = SpectralClustering(n_clusters=nclust,
                                       assign_labels='discretize', affinity='nearest_neighbors')
@@ -120,126 +114,43 @@ def cluster_colapsed_events(data, users, minloc=20, nclust=10, mode='nf', alg='a
             if cclass[v] > minsize:
                 clusters['c' + str(v)].append(u)
 
-                # print len(clusters)
-                # for c in clusters:
-                #     print c, len(clusters[c])
-
     return clusters
 
 
-def cluster_colapsed_events_simple(trans, minloc=20, nclust=10, mode='nf', alg='affinity', damping=None):
-    """
-     Generates a clustering of the users by colapsing the transactions of the user events
-     the users have to have at least minloc different locations in their transactions
-     Returns the clustering object
-
-     :arg   trans: Transaction object
-     :arg minloc: Minimum number of locations
-     :arg nclust: Number of clusters, for clustering algorithms that need this parameter
-     :arg mode:
-      * nf = location normalized frequency frequency for the user
-      * af = location absolute frequency for the user
-      * bin = presence/non presence of the location for the user
-      * adding idf used the inverse document frequency
-
-    """
-    # Generates a sparse matrix for the transactions and a list of users
-    data, users = trans.generate_data_matrix(minloc=minloc, mode=mode)
-
-    print "Clustering Transactions ..."
-
-    if alg == 'affinity':
-        ap = AffinityPropagation(damping=damping)
-        ap.fit(data)
-        return []
-    elif alg == 'kmeans':
-        lvals = []
-        ic, fc = nclust
-        for i in range(ic, fc):
-            k_means = KMeans(init='k-means++', n_clusters=i, n_init=10, n_jobs=-1)
-            k_means.fit(data)
-            labels = k_means.labels_
-            ssc = silhouette_score(data, labels, metric='euclidean')
-            lvals.append((i, ssc))
-            print i, ssc
-        return lvals
-
-
-def cluster_cache(data, mxhh=0, mnhh=0, radius=0.01, mins=100, size=100, alg='Leader', lhours=None):
-    if alg == 'Leader':
-        nfile = homepath + 'Clusters/' + data.city[2] + data.get_app_name() + '-' + 'nusr' + str(mxhh) + '+' + str(mnhh) \
-                + '-' + 'Leader-crd' + str(radius) + '-mex' + str(size)
-    elif alg == 'DBSCAN':
-        nfile = homepath + 'Clusters/' + data.city[2] + data.get_app_name() + '-' + 'nusr' + str(mxhh) + '+' + str(mnhh) \
-                + '-' + 'DBSCAN-crd' + str(radius) + '-mins' + str(mins) + '-mex' + str(size)
-    if lhours is not None:
-        nfile += '-hrs' + str(lhours)
+def cluster_cache(data, radius=0.01):
+    nfile = data.wpath + 'Clusters/' + data.city[2] + data.get_app_name() + '-' + 'Leader-crd' + str(radius)
     if os.path.isfile(nfile + '.pkl'):
         pfile = open(nfile + '.pkl', 'r')
         return pickle.load(pfile)
     else:
         return None
 
-
-def cluster_events(data, radius=0.01, mins=100, size=100, alg='Leader', sizeprop=0):
+def cluster_events(data, radius=0.01, size=100):
     """
     Cluster geographical events and returns the clusters
 
-    @param nclust:
-    @return:
+    @param data: STData
+    @param radius: Radius for the leader algorithm
+    @param size: minimum size of the cluster for appearing in the map
+    @return: Clustering and map
     """
     print "Clustering ..."
 
     coord = data.getDataCoordinates()
-
-    if alg == 'Leader':
-        dbs = Leader(radius=radius)
-    elif alg == 'DBSCAN':
-        dbs = DBSCAN(eps=radius, min_samples=mins, algorithm='kd_tree')
-    else:
-        dbs = None
+    dbs = Leader(radius=radius)
 
     dbs.fit(coord)
 
-    if alg == 'Leader':
-        sizes = dbs.cluster_sizes_
+    sizes = dbs.cluster_sizes_
 
-        map = plot_clusters(data, dbs.cluster_centers_[sizes > size],
-                      sizes[sizes > size],
-                      sizeprop=250,
-                      dataname='leader-crd' + str(radius) + '-mex' + str(size))
-        nfile = data.wpath + 'Clusters/' + data.city[2] + data.get_app_name() + '-' + 'Leader-crd' + str(radius) + '-mex' + str(size)
-        pkfile = open(nfile + '.pkl', 'w')
-        pickle.dump(dbs, pkfile)
-        pkfile.close()
-    elif alg == 'DBSCAN':
-        labset = set(dbs.labels_)
-        if -1 in labset:
-            dim = len(labset) - 1
-        else:
-            dim = len(set)
-        centers = np.zeros((dim, 2))
-        sizes = np.zeros(dim)
-        dataset = data.dataset
-        clres = np.zeros((dataset.shape[0], 3))
-        for i in range(dataset.shape[0]):
-            clres[i][0] = dataset[i][0]
-            clres[i][1] = dataset[i][1]
-            clres[i][2] = dbs.labels_[i]
-            if dbs.labels_[i] != -1:
-                sizes[int(dbs.labels_[i])] += 1
-                centers[int(dbs.labels_[i])][0] += dataset[i][0]
-                centers[int(dbs.labels_[i])][1] += dataset[i][1]
-
-        for i in range(sizes.shape[0]):
-            centers[i][0] /= sizes[i]
-            centers[i][1] /= sizes[i]
-            print sizes[i]
-        nfile = data.wpath + 'Results/' + data.city[2] + data.get_app_name() + '-'
-        savetxt(nfile + 'DBSCAN-crd' + str(radius) + '-mins' + str(mins) + '-mex' + str(size) + '.csv',
-                clres, delimiter=';')
-        map = plot_clusters(data, centers[sizes > size], sizes[sizes > size], dataname='dbscan-crd' + str(radius)
-                                            + '-mins' + str(mins) + '-mex' + str(size), sizeprop=sizeprop)
+    map = plot_clusters(data, dbs.cluster_centers_[sizes > size],
+                  sizes[sizes > size],
+                  sizeprop=250,
+                  dataname='leader-crd' + str(radius))
+    nfile = data.wpath + 'Clusters/' + data.city[2] + data.get_app_name() + '-' + 'Leader-crd' + str(radius)
+    pkfile = open(nfile + '.pkl', 'w')
+    pickle.dump(dbs, pkfile)
+    pkfile.close()
 
     return dbs, map
 
