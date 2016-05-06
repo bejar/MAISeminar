@@ -285,7 +285,6 @@ class STData:
                 ncl = cluster.predict(ejem)
                 ncl = ncl[0]
                 cont[ncl] += 1
-                print [posy, posx]
 
             cont = cont / np.max(cont)
             print
@@ -301,7 +300,7 @@ class STData:
 
 
         print 'Generating the events plot ...'
-        circlesize = 300
+        circlesize = 100
 
         minLat, maxLat, minLon, maxLon = self.city[1]
 

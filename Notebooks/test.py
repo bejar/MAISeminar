@@ -18,53 +18,35 @@ test
 
 __author__ = 'bejar'
 
-from Code.STData import STData
-from Code.Constants import homepath, cityparams
-from Code.Clustering import cluster_events, cluster_cache
-from Code.Transactions import DailyDiscretizedTransactions, DailyClusteredTransactions
-from Code.TimeDiscretizer import TimeDiscretizer
+import networkx as nx
 import folium
 
-data = STData('../', cityparams['bcn'], 'instagram')
+from Code.Constants import  cityparams
+from Code.Routes import draw_graph
+city = 'bcn'
+params = cityparams[city]
 
-data.read_data()
-data.info()
-data = data.select_heavy_hitters(9900, 10000)
-data.info()
+fname = '../Routes/bcntwitterkmeans-tr618-sp5.txt'
+coord = params[1]
 
-cluster = cluster_cache(data, alg= 'kmeans', radius=0.005, nclusters=50)
-if cluster is None:
-    print 'Computing Clustering'
-    cluster, _ = cluster_events(data, alg= 'kmeans', radius=0.005, nclusters=50)
+rfile = open(fname, 'r')
+
+gr = nx.Graph()
 
 
-timedis = [6, 18] # Time discretization
-trans = DailyClusteredTransactions(data, cluster=cluster, timeres=TimeDiscretizer(timedis))
-trans.info()
 
-# Minimum number of events
-minloc = 5
-# Attribute types 'bin'=[0,1] ; 'binidf'=[0,1]/IDF
-mode = 'bin'
-datamat, users = trans.generate_data_matrix(minloc=minloc, mode=mode)
+maplines = []
+for lines in rfile:
+    lines = lines[:lines.find(']')]
+    vals = lines.replace('[', '').replace(']','').replace('\n','').replace('\'','').replace(' ','').split(',')
+    print vals
+    for v1 in vals:
+        for v2 in vals:
+            if v1 != v2:
+                gr.add_edge(v1,v2)
+                # x1, y1, _= v1.split('#')
+                # x2, y2, _= v2.split('#')
 
-from Code.Clustering import cluster_colapsed_events
+mymap = draw_graph(gr, params, '../', city+'-routes')
 
-# Clustering Algorithms 'kmeans', 'spectral', 'affinity'
-calg = 'kmeans'
-# affinity damping parmeter 0.1 - 1
-damping=0.5
-# number of clusters for kmeans and spectral clustering
-nclust = 5
-# Minimum number of elements in a cluster
-
-cls = cluster_colapsed_events(datamat, users, alg=calg, damping=damping, nclust=nclust, minsize=1)
-
-print [(c, len(cls[c])) for c in cls]
-
-cluster_name = 'c0'
-print cls[cluster_name]
-
-dataclus = data.select_data_users(cls[cluster_name],pr=True)
-dataclus.info()
-mymap = dataclus.plot_events_cluster(cluster=cluster, dataname=cluster_name)
+mymap
