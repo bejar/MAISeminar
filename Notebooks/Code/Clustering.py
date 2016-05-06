@@ -25,18 +25,14 @@ import pickle
 
 import numpy as np
 from sklearn.cluster import KMeans, AffinityPropagation, DBSCAN, SpectralClustering
-from numpy import savetxt
 import folium
-from sklearn.metrics import silhouette_score
 from kemlglearn.cluster.Leader import Leader
-
-from Constants import homepath
-
+from collections import Counter
 
 circlesize = 15000
 
 
-def cluster_colapsed_events(data, users, minloc=20, nclust=10, mode='nf', alg='affinity', damping=None, minsize=0):
+def cluster_colapsed_events(data, users, nclust=10, alg='affinity', damping=None, minsize=0):
     """
      Generates a clustering of the users by colapsing the transactions of the user events
      the users have to have at least minloc different locations in their transactions
@@ -80,7 +76,6 @@ def cluster_colapsed_events(data, users, minloc=20, nclust=10, mode='nf', alg='a
         k_means = KMeans(init='k-means++', n_clusters=nclust, n_init=10, n_jobs=-1)
         k_means.fit(data)
         k_means_labels = k_means.labels_
-        #k_means_cluster_centers = k_means.cluster_centers_
         k_means_labels_unique = len(np.unique(k_means_labels))
         cclass = np.zeros(k_means_labels_unique)
         clusters = {}
@@ -117,15 +112,23 @@ def cluster_colapsed_events(data, users, minloc=20, nclust=10, mode='nf', alg='a
     return clusters
 
 
-def cluster_cache(data, radius=0.01):
-    nfile = data.wpath + 'Clusters/' + data.city[2] + data.get_app_name() + '-' + 'Leader-crd' + str(radius)
+def cluster_cache(data,  alg='leader', nclusters=100, radius=0.0001):
+    if alg == 'leader':
+        alstr = '-' + alg + '-par' + str(radius)
+    elif alg == 'kmeans':
+        alstr = '-' + alg + '-par' + str(nclusters)
+    else:
+        raise 'Incorrect Algorithm'
+
+    nfile = data.wpath + 'Clusters/' + data.city[2] + data.get_app_name() + alstr
     if os.path.isfile(nfile + '.pkl'):
+        print 'Clustering in cache ...'
         pfile = open(nfile + '.pkl', 'r')
         return pickle.load(pfile)
     else:
         return None
 
-def cluster_events(data, radius=0.01, size=100):
+def cluster_events(data, alg='leader', nclusters=100, radius=0.0001, size=100):
     """
     Cluster geographical events and returns the clusters
 
@@ -134,21 +137,33 @@ def cluster_events(data, radius=0.01, size=100):
     @param size: minimum size of the cluster for appearing in the map
     @return: Clustering and map
     """
-    print "Clustering ..."
+    print "Clustering ... " + alg
 
     coord = data.getDataCoordinates()
-    dbs = Leader(radius=radius)
+
+    if alg == 'leader':
+        dbs = Leader(radius=radius)
+        alstr= '-' + alg + '-par'+str(radius)
+    elif alg == 'kmeans':
+        dbs = KMeans(n_clusters=nclusters, n_init=1, random_state=0)
+        alstr= '-' + alg + '-par'+str(nclusters)
+    else:
+        raise 'Incorrect Algorithm'
 
     dbs.fit(coord)
 
-    sizes = dbs.cluster_sizes_
+    labels = dbs.labels_
+    clabels = Counter(labels)
 
+    sizes = np.array([clabels[i] for i in sorted(np.unique(labels))])
+
+    nfile = data.city[2] + data.get_app_name() + alstr
     map = plot_clusters(data, dbs.cluster_centers_[sizes > size],
                   sizes[sizes > size],
                   sizeprop=250,
-                  dataname='leader-crd' + str(radius))
-    nfile = data.wpath + 'Clusters/' + data.city[2] + data.get_app_name() + '-' + 'Leader-crd' + str(radius)
-    pkfile = open(nfile + '.pkl', 'w')
+                  dataname=nfile)
+
+    pkfile = open(data.wpath + 'Clusters/' + nfile + '.pkl', 'w')
     pickle.dump(dbs, pkfile)
     pkfile.close()
 
@@ -166,7 +181,6 @@ def plot_clusters(data, centroids, csizes, sizeprop=1000, dataname=''):
 
     print 'Generating the events plot ...'
 
-    today = time.strftime('%Y%m%d%H%M%S', time.localtime())
     minLat, maxLat, minLon, maxLon = data.city[1]
     mymap = folium.Map(location=[(minLat + maxLat) / 2.0, (minLon + maxLon) / 2.0], zoom_start=12, width=1400,
                        height=1400)
@@ -183,8 +197,6 @@ def plot_clusters(data, centroids, csizes, sizeprop=1000, dataname=''):
                             line_color='#FF0000',
                             fill_color='#110000')
 
-    nfile = data.get_app_name() + '-' + dataname
-
-    mymap.create_map(path=data.wpath + 'Results/' + data.city[2] + nfile + '.html')
+    mymap.create_map(path=data.wpath + 'Results/' + dataname + '.html')
     return mymap
 

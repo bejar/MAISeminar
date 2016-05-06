@@ -148,16 +148,16 @@ class STData:
         else:
             usercount = {}
             for i in range(self.dataset.shape[0]):
-                if self.dataset[i][3] in usercount:
-                    usercount[self.dataset[i][3]] += 1
+                if self.dataset[i][3].strip() in usercount:
+                    usercount[self.dataset[i][3].strip()] += 1
                 else:
-                    usercount[self.dataset[i][3]] = 1
+                    usercount[self.dataset[i][3].strip()] = 1
             # we memorize the list of users so it can be reused
             sorted_x = sorted(usercount.iteritems(), key=operator.itemgetter(1), reverse=True)
             self.lhh = sorted_x
             mnhht = min(mnhh, len(sorted_x))
             hhitters = [x for x, y in sorted_x[mxhh:mnhht]]
-            # print usercount[hhitters[0]], usercount[hhitters[-1]]
+
         return hhitters
 
     def select_heavy_hitters(self, mxhh, mnhh):
@@ -178,7 +178,7 @@ class STData:
         print 'Selecting Heavy Hitters ...'
         return self.select_data_users(lhh)
 
-    def select_data_users(self, users):
+    def select_data_users(self, users, pr=False):
         """
         Selects only the events from the list of users
 
@@ -188,8 +188,8 @@ class STData:
         print 'Selecting Users ...'
         # First transforms the list of users to a set to be efficient
         susers = set(users)
-        # computes the boolean array for the selection
-        sel = [self.dataset[i][3] in susers for i in range(self.dataset.shape[0])]
+
+        sel = [self.dataset[i][3].strip() in susers for i in range(self.dataset.shape[0])]
         asel = np.array(sel)
         data = STData(self.wpath, self.city, self.application)
         data.dataset = self.dataset[asel]
@@ -261,7 +261,7 @@ class STData:
         return htable
 
 
-    def plot_events_cluster(self, cluster, distrib=True, dataname='', timeres=None):
+    def plot_events_cluster(self, cluster, dataname=''):
         """
         Generates an scale x scale plot of the events
         Every event is represented by a point in the graph
@@ -277,136 +277,43 @@ class STData:
             All time colapsed
             @return:
             """
-            cont = np.zeros(cluster.num_clusters())
+            cont = np.zeros(cluster.cluster_centers_.shape[0])
             for i in range(self.dataset.shape[0]):
                 posy = self.dataset[i][0]
                 posx = self.dataset[i][1]
                 ejem = np.array([[posy, posx]]).reshape(1,-1)
                 ncl = cluster.predict(ejem)
                 ncl = ncl[0]
+                cont[ncl] += 1
+                print [posy, posx]
 
-                if distrib:
-                    cont[ncl] += 1
-                else:
-                    cont[ncl] = 1
+            cont = cont / np.max(cont)
+            print
+            for i in range(cont.shape[0]):
+                if cont[i] > 0.01:
+                    cx = cluster.cluster_centers_[i][0]
+                    cy = cluster.cluster_centers_[i][1]
+                    mymap.circle_marker(location=[cx, cy],
+                                        radius=cont[i] * circlesize,
+                                        line_color='#000000',
+                                        fill_color='#110000',
+                                        popup=str(cont[i]), fill_opacity=0.4)
 
-            if distrib:
-                cont = cont / np.max(cont)
-                for i in range(cont.shape[0]):
-                    if cont[i] > 0.01:
-                        cx = cluster.cluster_centers_[i][0]
-                        cy = cluster.cluster_centers_[i][1]
-                        mymap.circle_marker(location=[cx, cy],
-                                            radius=cont[i] * circlesize,
-                                            line_color='#000000',
-                                            fill_color='#110000',
-                                            popup=str(cont[i]), fill_opacity=0.4)
-            else:
-                for i in range(cont.shape[0]):
-                    if cont[i] > 0.01:
-                        cx = cluster.cluster_centers_[i][0]
-                        cy = cluster.cluster_centers_[i][1]
-
-                        mymap.circle_marker(location=[cx, cy],
-                                            radius=30,
-                                            line_color='#000000',
-                                            fill_color='#110000',
-                                            popup=str(cont[i]), fill_opacity=0.4)
-
-        def plot_timeres(timeres):
-            """
-            Geo points separated by the time resolution zones
-            @return:
-            """
-            tint = 24 / len(timeres.intervals)
-            step = 255 / (tint + 1)
-
-            cont = np.zeros(cluster.num_clusters())
-            for i in range(self.dataset.shape[0]):
-                posy = self.dataset[i][0]
-                posx = self.dataset[i][1]
-                ejem = np.array([[posy, posx]]).reshape(1,-1)
-                ncl = cluster.predict(ejem)
-                ncl = ncl[0]
-
-                if distrib:
-                    cont[ncl] += 1
-                else:
-                    cont[ncl] = 1
-
-            for t in range(tint):
-                color = '#' + (str(hex((t + 1) * step))[2:]) + \
-                        (str(hex((t + 1) * step))[2:]) + 'FF'  # (str(hex((t+1)*step))[2:])
-                cont = np.zeros(cluster.num_clusters())
-                for i in range(self.dataset.shape[0]):
-                    posy = self.dataset[i][0]
-                    posx = self.dataset[i][1]
-                    ejem = np.array([[posy, posx]]).reshape(1,-1)
-                    ncl = cluster.predict(ejem)
-                    ncl = ncl[0]
-
-                    _, evtime = timeres.discretize(self.dataset[i][2])
-
-                    if evtime == t:
-                        if distrib:
-                            cont[ncl] += 1
-                        else:
-                            cont[ncl] = 1
-                if distrib:
-                    cont = cont / np.max(cont)
-                    for i in range(cont.shape[0]):
-                        if cont[i] > 0.01:
-                            cx = cluster.cluster_centers_[i][0]
-                            cy = cluster.cluster_centers_[i][1]
-                            mymap.circle_marker(location=[cx, cy],
-                                                radius=cont[i] * circlesize,
-                                                line_color=pltcolors[t],
-                                                fill_color=pltcolors[t],  #'#110000',
-                                                popup=str(t) + '-' + str(cont[i]), fill_opacity=0.2)
-                else:
-                    for i in range(cont.shape[0]):
-                        for j in range(cont.shape[1]):
-                            if cont[i] > 0.01:
-                                cx = cluster.cluster_centers_[i][0]
-                                cy = cluster.cluster_centers_[i][1]
-                                mymap.circle_marker(location=[cx, cy],
-                                                    radius=30,
-                                                    line_color=pltcolors[t],
-                                                    fill_color=pltcolors[t],  #'#110000',
-                                                    popup=str(t) + '-' + str(cont[i]), fill_opacity=0.2)
 
         print 'Generating the events plot ...'
-        circlesize = 60000 * cluster.radius
-
-        # if timeres == 0:
-        #     fig = plt.figure()
-        #     ax = fig.add_subplot(111)
+        circlesize = 300
 
         minLat, maxLat, minLon, maxLon = self.city[1]
-        # normLat = scale / (maxLat - minLat)
-        # normLon = scale / (maxLon - minLon)
+
         mymap = folium.Map(location=[(minLat + maxLat) / 2.0, (minLon + maxLon) / 2.0], zoom_start=12, width=1200,
                            height=1000)
 
-        if timeres is None:
-            plot_notimeres()
-        else:
-            plot_timeres(timeres)
+        plot_notimeres()
 
-        #today = time.strftime('%Y%m%d%H%M%S', time.localtime())
-        nfile = self.application + '-' + dataname + '-Clust'
-        if self.mnhh is not None and self.mnhh is not None:
-            nfile += '-nusr' + str(self.mxhh) + '#' + str(self.mnhh)
+        nfile = self.application + '-' + dataname
 
-        if timeres is not None:
-            nfile += '-tr' + str(timeres.intervals)
-        nfile += '-s' + str(cluster.radius)
-
-        # if timeres == 0:
-        #     fig.savefig(homepath + 'Results/' + self.city[2] + '-' +
-        #                 nfile + '.pdf', orientation='landscape', format='pdf')
-        #     plt.close()
-        mymap.create_map(path=homepath + 'Results/clusters/' + self.city[2] + nfile + '.html')
+        mymap.create_map(path=self.wpath + 'Results/Cluster-' + self.city[2] + nfile + '.html')
+        return mymap
 
     def generate_user_dict(self):
         res = {}

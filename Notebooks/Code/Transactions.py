@@ -43,6 +43,16 @@ class Transactions:
         self.wpath = data.wpath
 
 
+    def info(self):
+        """
+        Information about the transactions
+        :return:
+        """
+        if self.usertrans is not None:
+            print 'Trans Size =', len(self.usertrans)
+        else:
+            print 'Empty'
+
 class DailyTransactions(Transactions):
     """
     Class for the daily transactions
@@ -232,6 +242,8 @@ class DailyClusteredTransactions(DailyTransactions):
                         uev[evtime].add(pos)
             self.usertrans = userEvents
 
+
+
     def generate_data_matrix(self, minloc=20, mode='af'):
         """
         Generates a sparse data matrix from the transactions
@@ -259,7 +271,7 @@ class DailyClusteredTransactions(DailyTransactions):
             ncl = cluster.predict(ejem)
             ncl = ncl[0]
             if ncl != -1:
-                return cluster.num_clusters() * t + ncl
+                return cluster.cluster_centers_.shape[0] * t + ncl
             else:
                 print "UIUIUI!"
                 return -1
@@ -318,7 +330,7 @@ class DailyClusteredTransactions(DailyTransactions):
 
                 i += 1
         datamat = coo_matrix((np.array(lval), (np.array(lrow), np.array(lcol))),
-                             shape=(i, self.cluster.num_clusters() * len(self.timeres.intervals)))
+                             shape=(i, self.cluster.cluster_centers_.shape[0] * len(self.timeres.intervals)))
         print datamat.shape
         return datamat.tocsc(), lusers
 
