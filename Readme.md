@@ -1,4 +1,4 @@
-Master in Artificial Intelligence Seminar (May 2006)
+Master in Artificial Intelligence Seminar (May 2016)
 ===========================
 
-Python Notebooks
+Python Notebooks and some code
