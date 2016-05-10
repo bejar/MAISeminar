@@ -4,8 +4,7 @@
 *.pkl
 *.html
 *.json
-*.txt
-*.csv
+
 
 ### IPythonNotebook template
 # Temporary data

@@ -73,7 +73,7 @@ def cluster_colapsed_events(data, users, nclust=10, alg='affinity', damping=None
                 clusters['c' + str(v)].append(u)
 
     elif alg == 'kmeans':
-        k_means = KMeans(init='k-means++', n_clusters=nclust, n_init=10, n_jobs=-1)
+        k_means = KMeans(init='k-means++', n_clusters=nclust, n_init=1, n_jobs=-1)
         k_means.fit(data)
         k_means_labels = k_means.labels_
         k_means_labels_unique = len(np.unique(k_means_labels))
